@@ -7,6 +7,15 @@ import { useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { projectError } from "@/lib/projects";
 import { ChoiceSelect } from "./choice-select";
+import { LearningPanel } from "./learning-content";
+import {
+  BookOpen,
+  Share2,
+  Copy,
+  ChartNoAxesColumn,
+  LoaderCircle,
+} from "lucide-react";
+import "./learning.css";
 
 type Features = {
   hasMore: boolean;
@@ -116,9 +125,36 @@ export function VideoFeatures({
             key={id}
             role="tab"
             aria-selected={tab === id}
+            id={`video-tool-${revisionId}-${id}`}
+            aria-controls={`feature-panel-${revisionId}`}
+            tabIndex={tab === id ? 0 : -1}
+            onKeyDown={(event) => {
+              const ids = ["learn", "share", "duplicate", "results"];
+              let next = ids.indexOf(id);
+              if (event.key === "ArrowRight") next = (next + 1) % ids.length;
+              else if (event.key === "ArrowLeft")
+                next = (next + ids.length - 1) % ids.length;
+              else if (event.key === "Home") next = 0;
+              else if (event.key === "End") next = ids.length - 1;
+              else return;
+              event.preventDefault();
+              setTab(ids[next]);
+              document
+                .getElementById(`video-tool-${revisionId}-${ids[next]}`)
+                ?.focus();
+            }}
             onClick={() => setTab(id)}
             className={tab === id ? "is-selected" : ""}
           >
+            {id === "learn" ? (
+              <BookOpen size={15} />
+            ) : id === "share" ? (
+              <Share2 size={15} />
+            ) : id === "duplicate" ? (
+              <Copy size={15} />
+            ) : (
+              <ChartNoAxesColumn size={15} />
+            )}
             {label}
           </button>
         ))}
@@ -131,65 +167,51 @@ export function VideoFeatures({
       {query.isPending ? (
         <p>Loading video tools…</p>
       ) : (
-        <div className="v2-feature-card" role="tabpanel">
+        <div
+          className="v2-feature-card"
+          role="tabpanel"
+          id={`feature-panel-${revisionId}`}
+          aria-labelledby={`video-tool-${revisionId}-${tab}`}
+        >
           {tab === "learn" && (
             <>
-              <h2>Go beyond watching</h2>
-              <p>
-                Generate questions and a quiz grounded in this video’s
-                narration.
-              </p>
               {!ready && (
-                <button
-                  type="button"
-                  className="v2-button v2-button-primary"
-                  disabled={busy || learning.isPending}
-                  onClick={() => learning.mutate()}
-                >
-                  {busy
-                    ? "Generating locally…"
-                    : query.data?.learning?.status === "failed"
-                      ? "Retry Q&A and quiz"
-                      : "Generate Q&A and quiz"}
-                </button>
+                <div className="learn-empty">
+                  <div className="learn-intro-icon">
+                    <BookOpen size={25} />
+                  </div>
+                  <h2>Turn watching into understanding.</h2>
+                  <p>
+                    Thoughtful questions and a short quiz, built from this
+                    video's narration.
+                  </p>
+                  <button
+                    type="button"
+                    className="v2-button v2-button-primary"
+                    disabled={busy || learning.isPending}
+                    onClick={() => learning.mutate()}
+                  >
+                    {busy || learning.isPending ? (
+                      <>
+                        <LoaderCircle size={16} className="v2-spin" /> Preparing
+                        your learning kit…
+                      </>
+                    ) : query.data?.learning?.status === "failed" ? (
+                      "Retry Q&A and quiz"
+                    ) : (
+                      "Generate Q&A and quiz"
+                    )}
+                  </button>
+                </div>
               )}
               {query.data?.learning?.error && (
                 <p className="v2-error">{query.data.learning.error}</p>
               )}
-              {ready && (
-                <>
-                  <h3>Questions & answers</h3>
-                  {query.data?.learning?.content?.qna.map((item) => (
-                    <article className="v2-learning-item" key={item.question}>
-                      <h4>{item.question}</h4>
-                      <p>{item.answer}</p>
-                    </article>
-                  ))}
-                  <h3>
-                    Quiz · {query.data?.learning?.content?.quiz.length}{" "}
-                    questions
-                  </h3>
-                  <p>
-                    Enable the quiz in a share link to invite participants and
-                    collect their results.
-                  </p>
-                  {query.data?.learning?.content?.quiz.map((item, i) => (
-                    <article className="v2-learning-item" key={item.question}>
-                      <h4>
-                        {i + 1}. {item.question}
-                      </h4>
-                      <ol type="A">
-                        {item.options.map((option, j) => (
-                          <li key={option}>
-                            {option}
-                            {item.correctIndex === j ? " ✓" : ""}
-                          </li>
-                        ))}
-                      </ol>
-                      <p>{item.explanation}</p>
-                    </article>
-                  ))}
-                </>
+              {ready && query.data?.learning?.content && (
+                <LearningPanel
+                  content={query.data.learning.content}
+                  onShare={() => setTab("share")}
+                />
               )}
             </>
           )}

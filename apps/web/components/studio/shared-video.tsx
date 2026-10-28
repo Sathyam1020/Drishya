@@ -2,11 +2,14 @@
 import { RadioGroup, RadioOption } from "@drishya/ui/components/radio-group";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { Check, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { projectError } from "@/lib/projects";
 import { ChoiceSelect } from "./choice-select";
 import { StudioVideo } from "./studio-video";
 import "./studio.css";
+import { QuestionAnswers } from "./learning-content";
+import "./learning.css";
 
 type Question = { question: string; options: string[] };
 type Session = {
@@ -133,12 +136,8 @@ export function SharedVideoPage({ token }: { token: string }) {
           {!!data?.qna.length && (
             <section className="v2-feature-card">
               <h2>Questions & answers</h2>
-              {data.qna.map((item) => (
-                <article className="v2-learning-item" key={item.question}>
-                  <h3>{item.question}</h3>
-                  <p>{item.answer}</p>
-                </article>
-              ))}
+              <p>Explore the key ideas from this explanation.</p>
+              <QuestionAnswers items={data.qna} />
             </section>
           )}
           {data?.quizEnabled && (
@@ -178,17 +177,50 @@ export function SharedVideoPage({ token }: { token: string }) {
                 </form>
               ) : session.result ? (
                 <>
-                  <h3>
-                    {session.name}, you scored {session.result.score}/
-                    {session.result.total}
-                  </h3>
-                  {session.result.review.map((item, i) => (
-                    <article className="v2-learning-item" key={item.question}>
-                      <h4>{item.question}</h4>
+                  <div className="learn-score">
+                    <strong>
+                      {session.result.score}/{session.result.total}
+                    </strong>
+                    <div>
+                      <h3>Quiz complete, {session.name}.</h3>
                       <p>
-                        Your answer: {item.options[session.answers[i]] ?? "—"}
+                        Your result has been saved. Review the answers below.
                       </p>
-                      <p>Correct answer: {item.options[item.correctIndex]}</p>
+                    </div>
+                  </div>
+                  {session.result.review.map((item, i) => (
+                    <article className="learn-review" key={item.question}>
+                      <span className="learn-question-meta">
+                        Question {i + 1} of {session.result!.total}
+                      </span>
+                      <h4>{item.question}</h4>
+                      <div
+                        className={`learn-selected-answer ${session.answers[i] === item.correctIndex ? "is-correct" : "is-incorrect"}`}
+                      >
+                        <strong>
+                          {session.answers[i] === item.correctIndex ? (
+                            <>
+                              <Check size={16} /> Correct
+                            </>
+                          ) : (
+                            <>
+                              <X size={16} /> Incorrect
+                            </>
+                          )}
+                        </strong>
+                        <span>
+                          Your answer:{" "}
+                          {item.options[session.answers[i]] ?? "Not answered"}
+                        </span>
+                      </div>
+                      {session.answers[i] !== item.correctIndex && (
+                        <p className="learn-correct-reference">
+                          <Check size={15} />{" "}
+                          <span>
+                            Correct answer: {item.options[item.correctIndex]}
+                          </span>
+                        </p>
+                      )}
                       <p>{item.explanation}</p>
                     </article>
                   ))}
@@ -211,7 +243,29 @@ export function SharedVideoPage({ token }: { token: string }) {
                     submit.mutate();
                   }}
                 >
-                  <p>Participant: {session.name}</p>
+                  <div className="learn-quiz-progress">
+                    <span>
+                      {session.name} ·{" "}
+                      {session.answers.filter((a) => a >= 0).length} of{" "}
+                      {session.questions.length} answered
+                    </span>
+                    <div
+                      className="learn-progress-track"
+                      role="progressbar"
+                      aria-label="Quiz completion"
+                      aria-valuenow={
+                        session.answers.filter((a) => a >= 0).length
+                      }
+                      aria-valuemin={0}
+                      aria-valuemax={session.questions.length}
+                    >
+                      <span
+                        style={{
+                          width: `${(session.answers.filter((a) => a >= 0).length / session.questions.length) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
                   {session.questions.map((item, i) => (
                     <fieldset className="v2-quiz-question" key={item.question}>
                       <legend>
@@ -240,7 +294,10 @@ export function SharedVideoPage({ token }: { token: string }) {
                             value={String(j)}
                             className={`v2-quiz-option ${session.answers[i] === j ? "is-selected" : ""}`}
                           >
-                            {String.fromCharCode(65 + j)}. {option}
+                            <span className="learn-option-letter">
+                              {String.fromCharCode(65 + j)}
+                            </span>
+                            <span>{option}</span>
                           </RadioOption>
                         ))}
                       </RadioGroup>
